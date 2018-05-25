@@ -48,8 +48,8 @@ void output_superblock()
 }
 
 void output_group(){
-    int remainedInodes = my_superblock.s_inodes_count;
-    int remainedBlocks = my_superblock.s_blocks_count;
+    unsigned int remainedInodes = my_superblock.s_inodes_count;
+    unsigned int remainedBlocks = my_superblock.s_blocks_count;
     int groupNumber = my_superblock.s_blocks_count/ my_superblock.s_blocks_per_group+1;
     groupSum = malloc(groupNumber*sizeof(struct ext2_group_desc));
     int STARTOFFSET = SUPEROFF + BLOCKSIZE;
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 		{
 			fprintf(stderr, "Error opening the img_file %s. Error message: %s\n", img_file, strerror(errsv_open));
 			exit(2);
-		}
+        }
 	}
 
 
@@ -126,6 +126,7 @@ int main(int argc, char *argv[])
 	}
 
 	output_superblock();
-
+    output_group();
+    
 	exit(0);
 }
