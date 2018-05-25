@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "ext2_fs.h"
 
 char *img_file;
 int fs_fd=-1;
@@ -21,18 +22,21 @@ struct ext2_super_block my_superblock;
 
 void output_superblock()
 {
+	//double or unsigned int???
 	char id[11] = "SUPERBLOCK";
-	double total_number_of_blocks;
-	double total_number_of_inodes;
-	double block_size;
-	double inode_size;
-	double blocks_per_group;
-	double inodes_per_group;
-	double first_non_reserved_inode;
 
 	//The superblock is always located at byte offset 1024 from the beginning of the file in Ext2
+	int ret = pread(fs_fd, &my_superblock, sizeof(struct ext2_super_block), 1024);
+	double total_number_of_blocks = my_superblock.s_blocks_count;
+	double total_number_of_inodes = my_superblock.s_inodes_count;
+	double block_size = EXT2_MIN_BLOCK_SIZE << my_superblock.s_log_block_size;
+	double inode_size = my_superblock.s_inode_size;
+	double blocks_per_group = my_superblock.s_blocks_per_group;
+	double inodes_per_group = my_superblock.s_inodes_per_group;
+	double first_non_reserved_inode = my_superblock.s_first_ino;
 
-
+	//printf("%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
+	dprintf(mydata_fd, "%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
 }
 
 int main(int argc, char *argv[])
