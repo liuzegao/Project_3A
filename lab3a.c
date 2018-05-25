@@ -8,9 +8,32 @@
 #include <termios.h>
 #include <errno.h>
 #include <getopt.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 char *img_file;
 int fs_fd=-1;
+int mydata_fd;
+
+struct ext2_super_block my_superblock;
+
+
+void output_superblock()
+{
+	char id[11] = "SUPERBLOCK";
+	double total_number_of_blocks;
+	double total_number_of_inodes;
+	double block_size;
+	double inode_size;
+	double blocks_per_group;
+	double inodes_per_group;
+	double first_non_reserved_inode;
+
+	//The superblock is always located at byte offset 1024 from the beginning of the file in Ext2
+
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -30,6 +53,15 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Error opening the img_file %s. Error message: %s\n", img_file, strerror(errsv_open));
 			exit(2);
 		}
+	}
+
+
+	//just for testing!!!
+	mydata_fd = open(MYDATA, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+	if(mydata_fd < 0)
+	{
+		fprintf(stderr, "Error opeing my data file.\n");
+		exit(2)
 	}
 
 	exit(0);
