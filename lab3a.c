@@ -18,6 +18,9 @@ int fs_fd=-1;
 int mydata_fd;
 
 struct ext2_super_block my_superblock;
+struct ext2_group_desc* groupSum;
+const int SUPEROFF = 1024;
+const int BLOCKSIZE = 1024;
 
 
 void output_superblock()
@@ -37,6 +40,55 @@ void output_superblock()
 
 	//printf("%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
 	dprintf(mydata_fd, "%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
+}
+
+void output_group(){
+    int remainedInodes = my_superblock.s_inodes_count;
+    int remainedBlocks = my_superblock.s_blocks_count;
+    int groupNumber = my_superblock.s_blocks_count/ my_superblock.s_blocks_per_group+1;
+    groupSum = malloc(groupNumber*sizeof(struct ext2_group_desc));
+    int STARTOFFSET = SUPEROFF + BLOCKSIZE;
+    
+    for (int i = 0; i < groupNumber; i++){
+        
+        dprintf(mydata_fd, "GROUP,%d,", i);
+        
+        // Number of blocks in group
+        if(remainedBlocks > my_superblock.s_blocks_per_group) {
+            dprintf(mydata_fd, "%d,", my_superblock.s_blocks_per_group);
+            remainedBlocks-= my_superblock.s_blocks_per_group;
+        }
+        else {
+            dprintf(mydata_fd, "%d,", remainedBlocks);
+        }
+        
+        // Number of inodes in group
+        if(remainedInodes > my_superblock.s_inodes_per_group) {
+            dprintf(mydata_fd, "%d,", my_superblock.s_inodes_per_group);
+            remainedBlocks-= my_superblock.s_inodes_per_group;
+        }
+        else {
+            dprintf(mydata_fd, "%d,", remainedInodes);
+        }
+        
+        pread(fs_fd, &groupSum[i], sizeof(struct ext2_group_desc), STARTOFFSET + i*sizeof(struct ext2_group_desc));
+        //int bytes_read = pread(fs_fd, &group_data[i].free_block_count, 2, SUPERBLOCK_OFFSET + SUPERBLOCK_SIZE + (i * GROUP_DESC_SIZE) + 12);
+        // Number of free blocks
+        dprintf(mydata_fd, "%d,", groupSum[i].bg_free_blocks_count);
+        
+        // Number of free inodes
+        dprintf(mydata_fd, "%d,", groupSum[i].bg_free_inodes_count);
+        
+        // Block number of free block bitmap for group
+        dprintf(mydata_fd, "%d,", groupSum[i].bg_block_bitmap);
+        
+        // Block number of free inode bitmap for group
+        dprintf(mydata_fd, "%d,", groupSum[i].bg_inode_bitmap);
+        
+        // Block number of first block of inodes in group
+        dprintf(mydata_fd, "%d\n", groupSum[i].bg_inode_table);
+    }
+    
 }
 
 int main(int argc, char *argv[])
