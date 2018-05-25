@@ -27,13 +27,18 @@ void output_superblock()
 
 	//The superblock is always located at byte offset 1024 from the beginning of the file in Ext2
 	int ret = pread(fs_fd, &my_superblock, sizeof(struct ext2_super_block), 1024);
-	double total_number_of_blocks = my_superblock.s_blocks_count;
-	double total_number_of_inodes = my_superblock.s_inodes_count;
-	double block_size = EXT2_MIN_BLOCK_SIZE << my_superblock.s_log_block_size;
-	double inode_size = my_superblock.s_inode_size;
-	double blocks_per_group = my_superblock.s_blocks_per_group;
-	double inodes_per_group = my_superblock.s_inodes_per_group;
-	double first_non_reserved_inode = my_superblock.s_first_ino;
+	if(ret == -1)
+	{
+		fprintf(stderr, "Error. pread failed.\n");
+		exit(2);
+	}
+	int total_number_of_blocks = my_superblock.s_blocks_count;
+	int total_number_of_inodes = my_superblock.s_inodes_count;
+	int block_size = EXT2_MIN_BLOCK_SIZE << my_superblock.s_log_block_size;
+	int inode_size = my_superblock.s_inode_size;
+	int blocks_per_group = my_superblock.s_blocks_per_group;
+	int inodes_per_group = my_superblock.s_inodes_per_group;
+	int first_non_reserved_inode = my_superblock.s_first_ino;
 
 	//printf("%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
 	dprintf(mydata_fd, "%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
@@ -61,12 +66,14 @@ int main(int argc, char *argv[])
 
 
 	//just for testing!!!
-	mydata_fd = open(MYDATA, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+	mydata_fd = open("MYDATA", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
 	if(mydata_fd < 0)
 	{
-		fprintf(stderr, "Error opeing my data file.\n");
-		exit(2)
+		fprintf(stderr, "Error opening my data file.\n");
+		exit(2);
 	}
+
+	output_superblock();
 
 	exit(0);
 }
