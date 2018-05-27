@@ -29,31 +29,31 @@ int block_size;//!!!
 
 int block_num_to_offset(int block_number)
 {
-	return (SUPEROFF+(block_number-1)*block_size);
+    return (SUPEROFF+(block_number-1)*block_size);
 }
 
 void output_superblock()
 {
-	//double or unsigned int???
-	char id[11] = "SUPERBLOCK";
-
-	//The superblock is always located at byte offset 1024 from the beginning of the file in Ext2
-	int ret = pread(fs_fd, &my_superblock, sizeof(struct ext2_super_block), SUPEROFF);
-	if(ret == -1)
-	{
-		fprintf(stderr, "Error. pread failed.\n");
-		exit(2);
-	}
-	int total_number_of_blocks = my_superblock.s_blocks_count;
-	int total_number_of_inodes = my_superblock.s_inodes_count;
-	block_size = EXT2_MIN_BLOCK_SIZE << my_superblock.s_log_block_size;
-	int inode_size = my_superblock.s_inode_size;
-	int blocks_per_group = my_superblock.s_blocks_per_group;
-	int inodes_per_group = my_superblock.s_inodes_per_group;
-	int first_non_reserved_inode = my_superblock.s_first_ino;
-
-	//printf("%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
-	dprintf(mydata_fd, "%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
+    //double or unsigned int???
+    char id[11] = "SUPERBLOCK";
+    
+    //The superblock is always located at byte offset 1024 from the beginning of the file in Ext2
+    int ret = pread(fs_fd, &my_superblock, sizeof(struct ext2_super_block), SUPEROFF);
+    if(ret == -1)
+    {
+        fprintf(stderr, "Error. pread failed.\n");
+        exit(2);
+    }
+    int total_number_of_blocks = my_superblock.s_blocks_count;
+    int total_number_of_inodes = my_superblock.s_inodes_count;
+    block_size = EXT2_MIN_BLOCK_SIZE << my_superblock.s_log_block_size;
+    int inode_size = my_superblock.s_inode_size;
+    int blocks_per_group = my_superblock.s_blocks_per_group;
+    int inodes_per_group = my_superblock.s_inodes_per_group;
+    int first_non_reserved_inode = my_superblock.s_first_ino;
+    
+    //printf("%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
+    dprintf(mydata_fd, "%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
 }
 
 void output_group()
@@ -128,15 +128,15 @@ void output_free_block_entries()
             {
                 number_of_blocks_in_group= my_superblock.s_blocks_per_group;
             }
-        } 
+        }
         else
         {
             number_of_blocks_in_group = my_superblock.s_blocks_per_group;
         }
-
+        
         int number_of_bytes_in_bitmap = number_of_blocks_in_group/8;
         int number_of_remaining_bits = number_of_blocks_in_group % 8;
-
+        
         //interpret the bytes that can be extracted by the whole char
         int j;
         for(j = 0; j < number_of_bytes_in_bitmap; j++)
@@ -152,7 +152,7 @@ void output_free_block_entries()
                 }
             }
         }
-
+        
         //interpret the remaining bits
         char my_remaining_byte = my_bitmap[j];
         for(int p = 0; p < number_of_remaining_bits; p++)
@@ -170,54 +170,54 @@ void output_free_block_entries()
 
 void output_free_inode_entries()
 {
-	int number_of_free_inodes;
-	char my_inode_bitmap[block_size];
-	for(int i = 0; i < groupNumber; i++)
-	{
-		int block_num_of_inode_bitmap = groupSum[i].bg_inode_bitmap;
-		pread(fs_fd, my_inode_bitmap, block_size, block_num_to_offset(block_num_of_inode_bitmap));
-		if(i == groupNumber-1)
-		{
-			number_of_free_inodes = my_superblock.s_inodes_count % my_superblock.s_inodes_per_group;
-			if(number_of_free_inodes == 0)
-			{
-				number_of_free_inodes = my_superblock.s_inodes_per_group;
-			}
-		} 
-		else
-		{
-			number_of_free_inodes = my_superblock.s_inodes_per_group;
-		}
-
-		int number_of_bytes_in_inode_bitmap = number_of_free_inodes/8;
-		int number_of_remaining_bits_inode = number_of_free_inodes % 8;
-
-		int j;
-		for(j = 0; j < number_of_bytes_in_inode_bitmap; j++)
-		{
-			char my_inode_byte = my_inode_bitmap[j];
-			for(int k = 0; k < 8; k++)
-			{
-				if((my_inode_byte & (1 << k)) == 0) //free inode 
-				{
-					int block_number_of_the_free_inode = 1 + i*my_superblock.s_inodes_per_group + j*8 + k;
-					dprintf(mydata_fd, "IFREE,%d\n", block_number_of_the_free_inode);
-					//printf("IFREE,%d", block_number_of_the_free_inode);
-				}
-			}
-		}
-
-		char my_remaining_inode_byte = my_inode_bitmap[j];
-		for(int p = 0; p < number_of_remaining_bits_inode; p++)
-		{
-			if((my_remaining_inode_byte & (1 << p)) == 0)
-			{
-				int block_number_of_the_free_inode = 1 + i*my_superblock.s_inodes_per_group + j*8 + p;
-				dprintf(mydata_fd, "IFREE,%d\n", block_number_of_the_free_inode);
-				//printf("IFREE,%d", block_number_of_the_free_inode);
-			}
-		}
-	}
+    int number_of_free_inodes;
+    char my_inode_bitmap[block_size];
+    for(int i = 0; i < groupNumber; i++)
+    {
+        int block_num_of_inode_bitmap = groupSum[i].bg_inode_bitmap;
+        pread(fs_fd, my_inode_bitmap, block_size, block_num_to_offset(block_num_of_inode_bitmap));
+        if(i == groupNumber-1)
+        {
+            number_of_free_inodes = my_superblock.s_inodes_count % my_superblock.s_inodes_per_group;
+            if(number_of_free_inodes == 0)
+            {
+                number_of_free_inodes = my_superblock.s_inodes_per_group;
+            }
+        }
+        else
+        {
+            number_of_free_inodes = my_superblock.s_inodes_per_group;
+        }
+        
+        int number_of_bytes_in_inode_bitmap = number_of_free_inodes/8;
+        int number_of_remaining_bits_inode = number_of_free_inodes % 8;
+        
+        int j;
+        for(j = 0; j < number_of_bytes_in_inode_bitmap; j++)
+        {
+            char my_inode_byte = my_inode_bitmap[j];
+            for(int k = 0; k < 8; k++)
+            {
+                if((my_inode_byte & (1 << k)) == 0) //free inode
+                {
+                    int block_number_of_the_free_inode = 1 + i*my_superblock.s_inodes_per_group + j*8 + k;
+                    dprintf(mydata_fd, "IFREE,%d\n", block_number_of_the_free_inode);
+                    //printf("IFREE,%d", block_number_of_the_free_inode);
+                }
+            }
+        }
+        
+        char my_remaining_inode_byte = my_inode_bitmap[j];
+        for(int p = 0; p < number_of_remaining_bits_inode; p++)
+        {
+            if((my_remaining_inode_byte & (1 << p)) == 0)
+            {
+                int block_number_of_the_free_inode = 1 + i*my_superblock.s_inodes_per_group + j*8 + p;
+                dprintf(mydata_fd, "IFREE,%d\n", block_number_of_the_free_inode);
+                //printf("IFREE,%d", block_number_of_the_free_inode);
+            }
+        }
+    }
 }
 
 void ConverTime(int timestamp, char temp[]) {
@@ -227,7 +227,7 @@ void ConverTime(int timestamp, char temp[]) {
 }
 
 void indirect(int level, int maxlevel, int logicalOffset, int inodeNumber,int parentNode){
-    if(level > maxlevel) return;
+    if(level <= 0) return;
     
     int nRef = block_size / sizeof(__u32);
     int address[nRef];
@@ -253,7 +253,7 @@ void indirect(int level, int maxlevel, int logicalOffset, int inodeNumber,int pa
                 logicalOffset+i,
                 inodeNumber,
                 address[i]);
-        indirect(level+1, maxlevel, logicalOffset, address[i],parentNode);
+        indirect(level-1, maxlevel, logicalOffset, address[i],parentNode);
     }
 }
 
@@ -331,7 +331,7 @@ void output_inode(){
                             offset += directory.rec_len;
                             continue;
                         }
-                        dprintf(mydata_fd, "DIRECT,%d,%d,%d,%d,%d,'%s'\n",
+                        dprintf(mydata_fd, "DIRENT,%d,%d,%d,%d,%d,'%s'\n",
                                 j+1,
                                 offset,
                                 directory.inode,
@@ -346,9 +346,9 @@ void output_inode(){
             if (inodeIterator->i_block[12] > 0)
                 indirect(1, 1, 12,inodeIterator->i_block[12], j+1);
             if (inodeIterator->i_block[13] > 0)
-                indirect(1, 2, 268,inodeIterator->i_block[13], j+1);
+                indirect(2, 2, 268,inodeIterator->i_block[13], j+1);
             if (inodeIterator->i_block[14] > 0)
-                indirect(1, 3, 65804,inodeIterator->i_block[14], j+1);
+                indirect(3, 3, 65804,inodeIterator->i_block[14], j+1);
             free(inodeIterator);
         }
     }
@@ -358,37 +358,38 @@ void output_inode(){
 
 int main(int argc, char *argv[])
 {
-	if(argc != 2)
-	{
-		fprintf(stderr, "Error. Wrong number of arguments. Usage: %s ext2_image.\n", argv[0]);
-		exit(1);
-	}
-
-	img_file = argv[1];
-	if(img_file != NULL)
-	{
-		fs_fd = open(img_file, O_RDONLY);
-		int errsv_open = errno;
-		if(fs_fd < 0)
-		{
-			fprintf(stderr, "Error opening the img_file %s. Error message: %s\n", img_file, strerror(errsv_open));
-			exit(2);
+    if(argc != 2)
+    {
+        fprintf(stderr, "Error. Wrong number of arguments. Usage: %s ext2_image.\n", argv[0]);
+        exit(1);
+    }
+    
+    img_file = argv[1];
+    if(img_file != NULL)
+    {
+        fs_fd = open(img_file, O_RDONLY);
+        int errsv_open = errno;
+        if(fs_fd < 0)
+        {
+            fprintf(stderr, "Error opening the img_file %s. Error message: %s\n", img_file, strerror(errsv_open));
+            exit(2);
         }
-	}
-
-
-	//just for testing!!!
-	mydata_fd = open("MYDATA", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
-	if(mydata_fd < 0)
-	{
-		fprintf(stderr, "Error opening my data file.\n");
-		exit(2);
-	}
-
-	output_superblock();
+    }
+    
+    
+    //just for testing!!!
+    mydata_fd = open("MYDATA", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+    if(mydata_fd < 0)
+    {
+        fprintf(stderr, "Error opening my data file.\n");
+        exit(2);
+    }
+    
+    output_superblock();
     output_group();
     output_free_block_entries();
     output_free_inode_entries();
     output_inode();
-	exit(0);
+    exit(0);
 }
+
