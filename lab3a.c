@@ -331,7 +331,7 @@ void output_inode(){
                             offset += directory.rec_len;
                             continue;
                         }
-                        dprintf(mydata_fd, "DIRECT,%d,%d,%d,%d,%d,'%s'\n",
+                        dprintf(mydata_fd, "DIRENT,%d,%d,%d,%d,%d,'%s'\n",
                                 j+1,
                                 offset,
                                 directory.inode,
