@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "ext2_fs.h"
+#include <sys/time.h>
+#include <time.h>
 
 char *img_file;
 int fs_fd=-1;
@@ -60,14 +62,11 @@ void output_group()
     unsigned int remainedBlocks = my_superblock.s_blocks_count;
     groupNumber = my_superblock.s_blocks_count/ my_superblock.s_blocks_per_group+1;
     groupSum = malloc(groupNumber*sizeof(struct ext2_group_desc));
-    int STARTOFFSET = SUPEROFF + block_size;
+    int STARTOFFSET = SUPEROFF + BLOCKSIZE;
     
     for (int i = 0; i < groupNumber; i++){
-        
         dprintf(mydata_fd, "GROUP,%d,", i);
         //printf("GROUP,%d,", i);
-        
-        // Number of blocks in group
         if(remainedBlocks > my_superblock.s_blocks_per_group) {
             dprintf(mydata_fd, "%d,", my_superblock.s_blocks_per_group);
             //printf("%d,", my_superblock.s_blocks_per_group);
@@ -77,8 +76,6 @@ void output_group()
             dprintf(mydata_fd, "%d,", remainedBlocks);
             //printf("%d,", remainedBlocks);
         }
-        
-        // Number of inodes in group
         if(remainedInodes > my_superblock.s_inodes_per_group) {
             dprintf(mydata_fd, "%d,", my_superblock.s_inodes_per_group);
             //printf("%d,", my_superblock.s_inodes_per_group);
@@ -88,85 +85,34 @@ void output_group()
             dprintf(mydata_fd, "%d,", remainedInodes);
             //printf("%d,", remainedInodes);
         }
-        
-        pread(fs_fd, &groupSum[i], sizeof(struct ext2_group_desc), STARTOFFSET + i*sizeof(struct ext2_group_desc));
-        //int bytes_read = pread(fs_fd, &group_data[i].free_block_count, 2, SUPERBLOCK_OFFSET + SUPERBLOCK_SIZE + (i * GROUP_DESC_SIZE) + 12);
-        // Number of free blocks
+        if(pread(fs_fd, &groupSum[i], sizeof(struct ext2_group_desc), STARTOFFSET + i*sizeof(struct ext2_group_desc))==-1){
+            fprintf(stderr, "Failed to pread group desc.\n");
+            exit(2);
+        }
+        /*
+         GROUP
+         group number (decimal, starting from zero)
+         total number of blocks in this group (decimal)
+         total number of i-nodes in this group (decimal)
+         number of free blocks (decimal)
+         number of free i-nodes (decimal)
+         block number of free block bitmap for this group (decimal)
+         block number of free i-node bitmap for this group (decimal)
+         block number of first block of i-nodes in this group (decimal)
+         */
         dprintf(mydata_fd, "%d,", groupSum[i].bg_free_blocks_count);
         //printf("%d,", groupSum[i].bg_free_blocks_count);
-        
-        // Number of free inodes
         dprintf(mydata_fd, "%d,", groupSum[i].bg_free_inodes_count);
         //printf("%d,", groupSum[i].bg_free_inodes_count);
-        
-        // Block number of free block bitmap for group
         dprintf(mydata_fd, "%d,", groupSum[i].bg_block_bitmap);
         //printf("%d,", groupSum[i].bg_block_bitmap);
-        
-        // Block number of free inode bitmap for group
         dprintf(mydata_fd, "%d,", groupSum[i].bg_inode_bitmap);
         //printf("%d,", groupSum[i].bg_inode_bitmap);
-        
-        // Block number of first block of inodes in group
         dprintf(mydata_fd, "%d\n", groupSum[i].bg_inode_table);
         //printf("%d\n", groupSum[i].bg_inode_table);
-
-    } 
+    }
 }
 
-void output_free_block_entries()
-{
-	int number_of_blocks_in_group;
-	char my_bitmap[block_size];
-	for (int i = 0; i < groupNumber; i++)
-	{
-		int block_num_of_block_bitmap = groupSum[i].bg_block_bitmap;
-		pread(fs_fd, my_bitmap, block_size, block_num_to_offset(block_num_of_block_bitmap));
-		if(i == groupNumber-1)
-		{
-			number_of_blocks_in_group = my_superblock.s_blocks_count % my_superblock.s_blocks_per_group;
-			if(number_of_blocks_in_group == 0)
-			{
-				number_of_blocks_in_group= my_superblock.s_blocks_per_group;
-			}
-		} 
-		else
-		{
-			number_of_blocks_in_group = my_superblock.s_blocks_per_group;
-		}
-
-		int number_of_bytes_in_bitmap = number_of_blocks_in_group/8;
-		int number_of_remaining_bits = number_of_blocks_in_group % 8;
-
-		//interpret the bytes that can be extracted by the whole char
-		int j;
-		for(j = 0; j < number_of_bytes_in_bitmap; j++)
-		{
-			char my_byte = my_bitmap[j];
-			for(int k = 0; k < 8 ; k++)
-			{
-				if((my_byte & (1 << k)) == 0) //0 means free, get the least significant bit for the least number of block
-				{
-					int number_of_the_free_block = 1 + i*my_superblock.s_blocks_per_group + j*8 + k;
-					dprintf(mydata_fd, "BFREE,%d\n", number_of_the_free_block);
-					//printf("BFREE,%d\n", number_of_the_free_block);
-				}
-			}
-		}
-
-		//interpret the remaining bits
-		char my_remaining_byte = my_bitmap[j];
-		for(int p = 0; p < number_of_remaining_bits; p++)
-		{
-			if((my_remaining_byte & (1 << p)) == 0)
-			{
-				int number_of_the_free_block = 1 + i*my_superblock.s_blocks_per_group + j*8 + p;
-				dprintf(mydata_fd, "BFREE,%d\n", number_of_the_free_block);
-				//printf("BFREE,%d\n", number_of_the_free_block);
-			}
-		}
-	}
-}
 
 void output_free_inode_entries()
 {
@@ -220,7 +166,139 @@ void output_free_inode_entries()
 	}
 }
 
+void ConverTime(int timestamp, char temp[]) {
+    time_t timetemp= timestamp;
+    struct tm ts = *gmtime(&timetemp);
+    strftime(temp, 80, "%m/%d/%y %H:%M:%S", &ts);
+}
 
+void indirect(int level, int maxlevel, int logicalOffset, int inodeNumber,int parentNode){
+    if(level > maxlevel) return;
+    
+    int nRef = block_size / sizeof(__u32);
+    int address[nRef];
+    
+    if (pread(fs_fd, address, block_size, inodeNumber * block_size) < 0) {
+        fprintf(stderr, "Failed to pread indirect blocks\n");
+        exit(2);
+    }
+    /*
+     INDIRECT
+     I-node number of the owning file (decimal)
+     (decimal) level of indirection for the block being scanned ... 1 for single indirect, 2 for double indirect, 3 for triple
+     logical block offset (decimal) represented by the referenced block. If the referenced block is a data block, this is the logical block offset of that block within the file. If the referenced block is a single- or double-indirect block, this is the same as the logical offset of the first data block to which it refers.
+     block number of the (1, 2, 3) indirect block being scanned (decimal) . . . not the highest level block (in the recursive scan), but the lower level block that contains the block reference reported by this entry.
+     block number of the referenced block (decimal)
+     */
+    for (int i = 0; i < nRef; i++){
+        if (address[i] == 0)
+            continue;
+        dprintf(mydata_fd, "INDIRECT,%u,%u,%u,%u,%u\n",
+                parentNode,
+                level,
+                logicalOffset+i,
+                inodeNumber,
+                address[i]);
+        indirect(level+1, maxlevel, logicalOffset, address[i],parentNode);
+    }
+}
+
+void output_inode(){
+    for (int i = 0; i < groupNumber; i++) {
+        int inodeNumber = my_superblock.s_inodes_count;
+        int inodeTable = groupSum[i].bg_inode_table;
+        //block_size
+        for (int j = 0; j < inodeNumber; j++){
+            struct ext2_inode* inodeIterator = malloc(sizeof(struct ext2_inode));
+            //block_num_to_offset(inodeTable)
+            if (pread(fs_fd, inodeIterator, sizeof(struct ext2_inode),block_num_to_offset(inodeTable)+j*sizeof(struct ext2_inode)) == -1) {
+                fprintf(stderr, "Failed to pread inode iterator\n");
+                exit(2);
+            }
+            if (inodeIterator ->i_mode == 0 || inodeIterator ->i_links_count == 0)
+                continue;
+            
+            char Type = '?';
+            if (S_ISLNK(inodeIterator->i_mode)) Type = 's';
+            else if (S_ISREG(inodeIterator->i_mode)) Type = 'f';
+            else if (S_ISDIR(inodeIterator->i_mode)) Type = 'd';
+            
+            /*
+             INODE
+             inode number (decimal)
+             file type ('f' for file, 'd' for directory, 's' for symbolic link, '?" for anything else)
+             mode (low order 12-bits, octal ... suggested format "%o")
+             owner (decimal)
+             group (decimal)
+             link count (decimal)
+             time of last I-node change (mm/dd/yy hh:mm:ss, GMT)
+             modification time (mm/dd/yy hh:mm:ss, GMT)
+             time of last access (mm/dd/yy hh:mm:ss, GMT)
+             file size (decimal)
+             number of (512 byte) blocks of disk space (decimal) taken up by this file
+             */
+            dprintf(mydata_fd, "INODE,%d,", j + 1);
+            dprintf(mydata_fd, "%c,", Type);
+            dprintf(mydata_fd, "%o,",inodeIterator->i_mode & 0xFFF);
+            dprintf(mydata_fd, "%d,",inodeIterator->i_uid);
+            dprintf(mydata_fd, "%d,",inodeIterator->i_gid);
+            dprintf(mydata_fd, "%d,",inodeIterator->i_links_count);
+            char changeTime[25], modifyTime[25], accessTime[25];
+            ConverTime(inodeIterator->i_ctime, changeTime);
+            ConverTime(inodeIterator->i_mtime, modifyTime);
+            ConverTime(inodeIterator->i_atime, accessTime);
+            dprintf(mydata_fd, "%s,", changeTime);
+            dprintf(mydata_fd, "%s,", modifyTime);
+            dprintf(mydata_fd, "%s,", accessTime);
+            dprintf(mydata_fd, "%d,", inodeIterator->i_size);
+            dprintf(mydata_fd, "%d", inodeIterator->i_blocks);
+            if(Type == 'f' || Type == 'd'){
+                for (int y = 0; y < EXT2_N_BLOCKS; y++)
+                    dprintf(mydata_fd, ",%d", inodeIterator->i_block[y]);
+                dprintf(mydata_fd, "\n");
+            }else if(Type == 's'){
+                for (int y = 0; y < 1; y++){
+                    dprintf(mydata_fd, ",%d", inodeIterator->i_block[y]);
+                }
+                dprintf(mydata_fd, "\n");
+            }
+            
+            if(Type == 'd'){
+                for (int k = 0; k < 12; k++) {
+                    if (inodeIterator->i_block[k] == 0) break; // NULL - no more
+                    int offset = 0;
+                    while(offset < 1024){
+                        struct ext2_dir_entry directory;
+                        if(pread(fs_fd, &directory, sizeof(struct ext2_dir_entry), block_num_to_offset(inodeIterator->i_block[k]) + offset)<0){
+                            fprintf(stderr, "failed pread directory\n");
+                            exit(2);
+                        }
+                        if (directory.inode == 0 || directory.rec_len == 0){
+                            offset += directory.rec_len;
+                            continue;
+                        }
+                        dprintf(mydata_fd, "DIRECT,%d,%d,%d,%d,%d,'%s'\n",
+                                j+1,
+                                offset,
+                                directory.inode,
+                                directory.rec_len,
+                                directory.name_len,
+                                directory.name);
+                        offset += directory.rec_len;
+                    }
+                }
+            }
+            
+            if (inodeIterator->i_block[12] > 0)
+                indirect(1, 1, 12,inodeIterator->i_block[12], j+1);
+            if (inodeIterator->i_block[13] > 0)
+                indirect(1, 2, 268,inodeIterator->i_block[13], j+1);
+            if (inodeIterator->i_block[14] > 0)
+                indirect(1, 3, 65804,inodeIterator->i_block[14], j+1);
+            free(inodeIterator);
+        }
+    }
+}
 
 
 
@@ -257,6 +335,6 @@ int main(int argc, char *argv[])
     output_group();
     output_free_block_entries();
     output_free_inode_entries();
-    
+    output_inode();
 	exit(0);
 }
