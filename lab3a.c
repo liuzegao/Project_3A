@@ -113,6 +113,60 @@ void output_group()
     }
 }
 
+void output_free_block_entries()
+{
+    int number_of_blocks_in_group;
+    char my_bitmap[block_size];
+    for (int i = 0; i < groupNumber; i++)
+    {
+        int block_num_of_block_bitmap = groupSum[i].bg_block_bitmap;
+        pread(fs_fd, my_bitmap, block_size, block_num_to_offset(block_num_of_block_bitmap));
+        if(i == groupNumber-1)
+        {
+            number_of_blocks_in_group = my_superblock.s_blocks_count % my_superblock.s_blocks_per_group;
+            if(number_of_blocks_in_group == 0)
+            {
+                number_of_blocks_in_group= my_superblock.s_blocks_per_group;
+            }
+        } 
+        else
+        {
+            number_of_blocks_in_group = my_superblock.s_blocks_per_group;
+        }
+
+        int number_of_bytes_in_bitmap = number_of_blocks_in_group/8;
+        int number_of_remaining_bits = number_of_blocks_in_group % 8;
+
+        //interpret the bytes that can be extracted by the whole char
+        int j;
+        for(j = 0; j < number_of_bytes_in_bitmap; j++)
+        {
+            char my_byte = my_bitmap[j];
+            for(int k = 0; k < 8 ; k++)
+            {
+                if((my_byte & (1 << k)) == 0) //0 means free, get the least significant bit for the least number of block
+                {
+                    int number_of_the_free_block = 1 + i*my_superblock.s_blocks_per_group + j*8 + k;
+                    dprintf(mydata_fd, "BFREE,%d\n", number_of_the_free_block);
+                    //printf("BFREE,%d\n", number_of_the_free_block);
+                }
+            }
+        }
+
+        //interpret the remaining bits
+        char my_remaining_byte = my_bitmap[j];
+        for(int p = 0; p < number_of_remaining_bits; p++)
+        {
+            if((my_remaining_byte & (1 << p)) == 0)
+            {
+                int number_of_the_free_block = 1 + i*my_superblock.s_blocks_per_group + j*8 + p;
+                dprintf(mydata_fd, "BFREE,%d\n", number_of_the_free_block);
+                //printf("BFREE,%d\n", number_of_the_free_block);
+            }
+        }
+    }
+}
+
 
 void output_free_inode_entries()
 {
