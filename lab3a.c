@@ -1,6 +1,6 @@
-//NAME: Jiayu Zhao
-//EMAIL: jyzhao1230@g.ucla.edu
-//ID: 904818173
+//NAME: Zegao Liu,Jiayu Zhao
+//EMAIL: liuzegao2012@gmail.com,jyzhao1230@g.ucla.edu
+//ID: 004189106,904818173
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +17,6 @@
 
 char *img_file;
 int fs_fd=-1;
-int mydata_fd;
 int groupNumber;
 
 struct ext2_super_block my_superblock;
@@ -120,7 +119,11 @@ void output_free_block_entries()
     for (int i = 0; i < groupNumber; i++)
     {
         int block_num_of_block_bitmap = groupSum[i].bg_block_bitmap;
-        pread(fs_fd, my_bitmap, block_size, block_num_to_offset(block_num_of_block_bitmap));
+        if(pread(fs_fd, my_bitmap, block_size, block_num_to_offset(block_num_of_block_bitmap)) == -1)
+        {
+            fprintf(stderr, "Error. pread failed.\n");
+            exit(2);
+        }
         if(i == groupNumber-1)
         {
             number_of_blocks_in_group = my_superblock.s_blocks_count % my_superblock.s_blocks_per_group;
@@ -175,7 +178,11 @@ void output_free_inode_entries()
     for(int i = 0; i < groupNumber; i++)
     {
         int block_num_of_inode_bitmap = groupSum[i].bg_inode_bitmap;
-        pread(fs_fd, my_inode_bitmap, block_size, block_num_to_offset(block_num_of_inode_bitmap));
+        if(pread(fs_fd, my_inode_bitmap, block_size, block_num_to_offset(block_num_of_inode_bitmap)) == -1)
+        {
+            fprintf(stderr, "Error. pread failed.\n");
+            exit(2);
+        }
         if(i == groupNumber-1)
         {
             number_of_free_inodes = my_superblock.s_inodes_count % my_superblock.s_inodes_per_group;
@@ -374,15 +381,6 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Error opening the img_file %s. Error message: %s\n", img_file, strerror(errsv_open));
             exit(2);
         }
-    }
-    
-    
-    //just for testing!!!
-    mydata_fd = open("MYDATA", O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
-    if(mydata_fd < 0)
-    {
-        fprintf(stderr, "Error opening my data file.\n");
-        exit(2);
     }
     
     output_superblock();
