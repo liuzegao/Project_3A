@@ -62,7 +62,7 @@ void output_group()
     unsigned int remainedBlocks = my_superblock.s_blocks_count;
     groupNumber = my_superblock.s_blocks_count/ my_superblock.s_blocks_per_group+1;
     groupSum = malloc(groupNumber*sizeof(struct ext2_group_desc));
-    int STARTOFFSET = SUPEROFF + BLOCKSIZE;
+    int STARTOFFSET = SUPEROFF + block_size;
     
     for (int i = 0; i < groupNumber; i++){
         dprintf(mydata_fd, "GROUP,%d,", i);
