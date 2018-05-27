@@ -53,7 +53,7 @@ void output_superblock()
     int first_non_reserved_inode = my_superblock.s_first_ino;
     
     //printf("%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
-    dprintf(mydata_fd, "%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
+    printf("%s,%d,%d,%d,%d,%d,%d,%d\n", id, total_number_of_blocks, total_number_of_inodes, block_size, inode_size, blocks_per_group, inodes_per_group, first_non_reserved_inode);
 }
 
 void output_group()
@@ -65,24 +65,24 @@ void output_group()
     int STARTOFFSET = SUPEROFF + block_size;
     
     for (int i = 0; i < groupNumber; i++){
-        dprintf(mydata_fd, "GROUP,%d,", i);
+        printf("GROUP,%d,", i);
         //printf("GROUP,%d,", i);
         if(remainedBlocks > my_superblock.s_blocks_per_group) {
-            dprintf(mydata_fd, "%d,", my_superblock.s_blocks_per_group);
+            printf("%d,", my_superblock.s_blocks_per_group);
             //printf("%d,", my_superblock.s_blocks_per_group);
             remainedBlocks-= my_superblock.s_blocks_per_group;
         }
         else {
-            dprintf(mydata_fd, "%d,", remainedBlocks);
+            printf("%d,", remainedBlocks);
             //printf("%d,", remainedBlocks);
         }
         if(remainedInodes > my_superblock.s_inodes_per_group) {
-            dprintf(mydata_fd, "%d,", my_superblock.s_inodes_per_group);
+            printf("%d,", my_superblock.s_inodes_per_group);
             //printf("%d,", my_superblock.s_inodes_per_group);
             remainedBlocks-= my_superblock.s_inodes_per_group;
         }
         else {
-            dprintf(mydata_fd, "%d,", remainedInodes);
+            printf("%d,", remainedInodes);
             //printf("%d,", remainedInodes);
         }
         if(pread(fs_fd, &groupSum[i], sizeof(struct ext2_group_desc), STARTOFFSET + i*sizeof(struct ext2_group_desc))==-1){
@@ -100,15 +100,15 @@ void output_group()
          block number of free i-node bitmap for this group (decimal)
          block number of first block of i-nodes in this group (decimal)
          */
-        dprintf(mydata_fd, "%d,", groupSum[i].bg_free_blocks_count);
+        printf("%d,", groupSum[i].bg_free_blocks_count);
         //printf("%d,", groupSum[i].bg_free_blocks_count);
-        dprintf(mydata_fd, "%d,", groupSum[i].bg_free_inodes_count);
+        printf("%d,", groupSum[i].bg_free_inodes_count);
         //printf("%d,", groupSum[i].bg_free_inodes_count);
-        dprintf(mydata_fd, "%d,", groupSum[i].bg_block_bitmap);
+        printf("%d,", groupSum[i].bg_block_bitmap);
         //printf("%d,", groupSum[i].bg_block_bitmap);
-        dprintf(mydata_fd, "%d,", groupSum[i].bg_inode_bitmap);
+        printf("%d,", groupSum[i].bg_inode_bitmap);
         //printf("%d,", groupSum[i].bg_inode_bitmap);
-        dprintf(mydata_fd, "%d\n", groupSum[i].bg_inode_table);
+        printf("%d\n", groupSum[i].bg_inode_table);
         //printf("%d\n", groupSum[i].bg_inode_table);
     }
 }
@@ -147,7 +147,7 @@ void output_free_block_entries()
                 if((my_byte & (1 << k)) == 0) //0 means free, get the least significant bit for the least number of block
                 {
                     int number_of_the_free_block = 1 + i*my_superblock.s_blocks_per_group + j*8 + k;
-                    dprintf(mydata_fd, "BFREE,%d\n", number_of_the_free_block);
+                    printf("BFREE,%d\n", number_of_the_free_block);
                     //printf("BFREE,%d\n", number_of_the_free_block);
                 }
             }
@@ -160,7 +160,7 @@ void output_free_block_entries()
             if((my_remaining_byte & (1 << p)) == 0)
             {
                 int number_of_the_free_block = 1 + i*my_superblock.s_blocks_per_group + j*8 + p;
-                dprintf(mydata_fd, "BFREE,%d\n", number_of_the_free_block);
+                printf("BFREE,%d\n", number_of_the_free_block);
                 //printf("BFREE,%d\n", number_of_the_free_block);
             }
         }
@@ -201,7 +201,7 @@ void output_free_inode_entries()
                 if((my_inode_byte & (1 << k)) == 0) //free inode
                 {
                     int block_number_of_the_free_inode = 1 + i*my_superblock.s_inodes_per_group + j*8 + k;
-                    dprintf(mydata_fd, "IFREE,%d\n", block_number_of_the_free_inode);
+                    printf("IFREE,%d\n", block_number_of_the_free_inode);
                     //printf("IFREE,%d", block_number_of_the_free_inode);
                 }
             }
@@ -213,7 +213,7 @@ void output_free_inode_entries()
             if((my_remaining_inode_byte & (1 << p)) == 0)
             {
                 int block_number_of_the_free_inode = 1 + i*my_superblock.s_inodes_per_group + j*8 + p;
-                dprintf(mydata_fd, "IFREE,%d\n", block_number_of_the_free_inode);
+                printf("IFREE,%d\n", block_number_of_the_free_inode);
                 //printf("IFREE,%d", block_number_of_the_free_inode);
             }
         }
@@ -247,7 +247,7 @@ void indirect(int level, int maxlevel, int logicalOffset, int inodeNumber,int pa
     for (int i = 0; i < nRef; i++){
         if (address[i] == 0)
             continue;
-        dprintf(mydata_fd, "INDIRECT,%u,%u,%u,%u,%u\n",
+        printf("INDIRECT,%u,%u,%u,%u,%u\n",
                 parentNode,
                 level,
                 logicalOffset+i,
@@ -291,30 +291,30 @@ void output_inode(){
              file size (decimal)
              number of (512 byte) blocks of disk space (decimal) taken up by this file
              */
-            dprintf(mydata_fd, "INODE,%d,", j + 1);
-            dprintf(mydata_fd, "%c,", Type);
-            dprintf(mydata_fd, "%o,",inodeIterator->i_mode & 0xFFF);
-            dprintf(mydata_fd, "%d,",inodeIterator->i_uid);
-            dprintf(mydata_fd, "%d,",inodeIterator->i_gid);
-            dprintf(mydata_fd, "%d,",inodeIterator->i_links_count);
+            printf("INODE,%d,", j + 1);
+            printf("%c,", Type);
+            printf("%o,",inodeIterator->i_mode & 0xFFF);
+            printf("%d,",inodeIterator->i_uid);
+            printf("%d,",inodeIterator->i_gid);
+            printf("%d,",inodeIterator->i_links_count);
             char changeTime[25], modifyTime[25], accessTime[25];
             ConverTime(inodeIterator->i_ctime, changeTime);
             ConverTime(inodeIterator->i_mtime, modifyTime);
             ConverTime(inodeIterator->i_atime, accessTime);
-            dprintf(mydata_fd, "%s,", changeTime);
-            dprintf(mydata_fd, "%s,", modifyTime);
-            dprintf(mydata_fd, "%s,", accessTime);
-            dprintf(mydata_fd, "%d,", inodeIterator->i_size);
-            dprintf(mydata_fd, "%d", inodeIterator->i_blocks);
+            printf("%s,", changeTime);
+            printf("%s,", modifyTime);
+            printf("%s,", accessTime);
+            printf("%d,", inodeIterator->i_size);
+            printf("%d", inodeIterator->i_blocks);
             if(Type == 'f' || Type == 'd'){
                 for (int y = 0; y < EXT2_N_BLOCKS; y++)
-                    dprintf(mydata_fd, ",%d", inodeIterator->i_block[y]);
-                dprintf(mydata_fd, "\n");
+                    printf(",%d", inodeIterator->i_block[y]);
+                printf("\n");
             }else if(Type == 's'){
                 for (int y = 0; y < 1; y++){
-                    dprintf(mydata_fd, ",%d", inodeIterator->i_block[y]);
+                    printf(",%d", inodeIterator->i_block[y]);
                 }
-                dprintf(mydata_fd, "\n");
+                printf("\n");
             }
             
             if(Type == 'd'){
@@ -331,7 +331,7 @@ void output_inode(){
                             offset += directory.rec_len;
                             continue;
                         }
-                        dprintf(mydata_fd, "DIRENT,%d,%d,%d,%d,%d,'%s'\n",
+                        printf("DIRENT,%d,%d,%d,%d,%d,'%s'\n",
                                 j+1,
                                 offset,
                                 directory.inode,
